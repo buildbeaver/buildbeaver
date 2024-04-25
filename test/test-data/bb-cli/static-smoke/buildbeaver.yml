@@ -1,0 +1,52 @@
+version: "0.3"
+
+jobs:
+  - name: "1"
+    docker:
+      image: golang:1.17.3
+      pull: if-not-exists
+      shell: /bin/bash
+    artifacts: # Test artifacts
+      - name: test-files
+        paths: job1-step*-artifact.txt
+    environment:
+      TEST_ENV: "test"
+    steps: # Test multiple steps
+      - name: "1"
+        commands: |
+          echo "job1-step1" > job1-step1-artifact.txt
+      - name: "2"
+        commands: |
+          echo "job1-step2" > job1-step2-artifact.txt
+      - name: "3" # Test environment vars
+        commands: |
+          if [ "${TEST_ENV}" != "test" ]; then
+            echo "TEST_ENV mismatch: ${TEST_ENV}"
+            exit 1
+          fi
+
+  - name: "2"
+    depends: 1.artifacts # Test job dependencies, and artifact verification
+    docker:
+      image: golang:1.17.3
+      pull: if-not-exists
+      shell: /bin/bash
+    steps:
+      - name: "1"
+        commands: |
+          if [ "$(cat job1-step1-artifact.txt)" != "job1-step1" ]; then
+            echo "job1-step1 artifact mismatch"
+            exit 1
+          fi
+      - name: "2"
+        commands: |
+          if [ "$(cat job1-step2-artifact.txt)" != "job1-step2" ]; then
+            echo "job1-step2 artifact mismatch"
+            exit 1
+          fi
+      - name: "3" # Test environment vars
+        commands: |
+          if [ ! -z "${TEST_ENV}" ]; then
+            echo "TEST_ENV shouldn't be set"
+            exit 1
+          fi

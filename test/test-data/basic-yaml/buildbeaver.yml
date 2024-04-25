@@ -1,0 +1,36 @@
+version: "0.2"
+
+jobs:
+  - name: first_job
+    description: My First Job
+    docker:
+      image: golang:latest
+    steps:
+    - name: go
+      commands:
+        - echo "Independent power company"
+        - echo "<indecipherable mumbling...> contract!"
+
+  - name: build
+    description: Builds all code
+    depends: first_job
+    docker:
+      image: golang:latest
+    steps:
+      - name: build
+        commands:
+          - touch output_file
+          - "artifact info >> output_file"
+        artifacts:
+          - name: output_file
+            paths: output_file
+
+  - name: third
+    description: An unknown third job
+    depends: [ first_job, build ]
+    docker:
+      image: golang:latest
+    steps:
+      - name: third-step
+        commands: |
+          echo "We are running within the third job"

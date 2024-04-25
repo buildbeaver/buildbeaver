@@ -1,0 +1,44 @@
+import { ITimings } from './timings.interface';
+import { IJobDependency } from './job-dependency.interface';
+import { IService } from './service.interface';
+import { Status } from '../enums/status.enum';
+import { StepExecution } from '../enums/step-execution.enum';
+import { IEnvironment } from './environment.interface';
+import { IDocker } from './docker.interface';
+import { IJobArtifactDefinition } from './job-artifact-definition.interface';
+
+export interface IJob {
+  artifact_definitions?: IJobArtifactDefinition[];
+  build_id: string;
+  commit_id: string;
+  created_at: string;
+  definition_data_hash?: string;
+  definition_data_hash_type?: string;
+  depends?: IJobDependency[];
+  description: string;
+  docker?: IDocker;
+  environment?: IEnvironment[];
+  error?: string;
+  etag: string;
+  fingerprint: string;
+  fingerprint_commands?: string[];
+  fingerprint_hash_type?: unknown;
+  id: string;
+  indirect_job_url?: string;
+  indirect_to_job_id?: string;
+  log_descriptor_id?: string;
+  log_descriptor_url: string;
+  name: string;
+  ref: string;
+  repo_id: string;
+  runner_id?: string;
+  runs_on?: string[];
+  services?: IService[];
+  status: Status;
+  timings: ITimings;
+  type: string;
+  step_execution: StepExecution;
+  updated_at: string;
+  url: string;
+  workflow: string;
+}

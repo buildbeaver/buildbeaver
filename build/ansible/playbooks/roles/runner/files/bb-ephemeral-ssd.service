@@ -1,0 +1,13 @@
+[Unit]
+Description=Mounts ephemeral Amazon SSDs
+After=network.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/bb-mount-ephemeral-ssd
+RemainAfterExit=true
+ExecStop=
+StandardOutput=journal
+
+[Install]
+WantedBy=multi-user.target

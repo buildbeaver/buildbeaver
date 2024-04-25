@@ -1,0 +1,18 @@
+version: "0.2"
+
+jobs:
+  - name: generate-jobs
+    docker:
+      image: golang:1.19
+      pull: if-not-exists
+      shell: /bin/bash
+    steps:
+      - name: compile
+        commands: |
+          git config --global --add safe.directory $(pwd)
+          . build/scripts/lib/go-env.sh        
+          cd .bb && go build -mod=vendor -o "${GOBIN}/dynamic-build" .
+      - name: execute
+        commands: |
+          . build/scripts/lib/go-env.sh
+          "${GOBIN}/dynamic-build"

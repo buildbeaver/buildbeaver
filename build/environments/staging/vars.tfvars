@@ -1,0 +1,20 @@
+# TODO: Replace the API endpoints with the domain your instance is running on
+environment                                                     = "staging"
+resource_prefix                                                 = "buildbeaver-"
+database_backup_retention_days                                  = 1
+database_allocated_storage_gb                                   = 5
+database_server_type                                            = "db.t4g.micro"
+database_multi_az                                               = false
+database_skip_final_snapshot                                    = false
+dns_buildbeaver_zone_name                                       = "changeme.com"
+dns_app_subdomain                                               = "app.staging.changeme.com"
+dns_runner_subdomain                                            = "runner.staging.changeme.com"
+app_lb_certificate_arn                                          = "arn:aws:acm:us-west-2:123456789012:certificate/change-me"
+app_us_east_1_certificate_arn                                   = "arn:aws:acm:us-east-1:123456789012:certificate/change-me"
+bb_log_retention_days                                          = 1
+bb_server_container_repo                                       = "changeme.dkr.ecr.us-west-2.amazonaws.com/bb-server"
+bb_server_container_cpu                                        = 256
+bb_server_container_memory                                     = 512
+bb_server_container_desired_count                              = 1
+bb_server_container_config_api_server_github_auth_redirect_url = "https://app.staging.changeme.com/api/v1/authentication/github/callback"
+cloud_front_price_class                                         = "PriceClass_200"

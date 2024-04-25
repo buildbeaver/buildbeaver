@@ -1,0 +1,19 @@
+---
+- name: Install prometheus-node-exporter Docker Image
+  docker_image:
+    name: "{{ prometheus_node_exporter.docker_image }}"
+    source: pull
+    state: present
+
+- name: Start prometheus-node-exporter Docker Container
+  docker_container:
+    name: prometheus-node-exporter
+    image: "{{ prometheus_node_exporter.docker_image }}"
+    state: started
+    restart_policy: always
+    network_mode: host
+    command: /bin/node_exporter -collector.procfs /host/proc -collector.sysfs /host/sys -collector.filesystem.ignored-mount-points "^/(sys|proc|dev|host|etc)($|/)"
+    volumes:
+      - "/proc:/host/proc:ro"
+      - "/sys:/host/sys:ro"
+      - "/:/rootfs:ro"

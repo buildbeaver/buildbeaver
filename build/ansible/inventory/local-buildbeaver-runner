@@ -1,0 +1,8 @@
+[buildbeaver-runners]
+127.0.0.1
+
+[single:children]
+buildbeaver-runners
+
+[single:vars]
+ansible_ssh_user=ubuntu

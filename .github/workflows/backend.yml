@@ -1,0 +1,57 @@
+name: Backend Build
+
+on: [workflow_dispatch]
+
+defaults:
+  run:
+    working-directory: backend
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    # Create the postgres service that the tests can use
+    services:
+      # Label used to access the service container
+      postgres:
+        image: postgres:14
+        ports:
+          - 5432:5432
+        env:
+          POSTGRES_PASSWORD: password
+          POSTGRES_USER: buildbeaver
+        # Set health checks to wait until postgres has started
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Set up Go
+      uses: actions/setup-go@v3
+      with:
+        go-version: 1.18.10
+        cache: true
+        cache-dependency-path: backend/go.sum
+
+    - name: Install wire
+      run: go install github.com/google/wire/cmd/wire@v0.5.0
+
+    - name: Run wire
+      run: make generate-wire
+
+    - name: Run tests
+      run: make test
+
+    - name: Run postgres tests
+      run: make test
+      if: always() # Always run the Postgres tests even if the sqlite tests fail
+      env:
+        TEST_DB_DRIVER: postgres
+        TEST_CONNECTION_STRING: postgresql://buildbeaver:password@localhost:5432/?sslmode=disable
+
+    - name: Build
+      run: make build

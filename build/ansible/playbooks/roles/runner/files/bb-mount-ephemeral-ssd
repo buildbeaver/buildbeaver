@@ -1,0 +1,51 @@
+#! /bin/bash
+
+MOUNT="/buildbeaver"
+LABEL="buildbeaver-e-ssd"
+DEV="/dev/md/md-buildbeaver"
+
+# No-op when not running on Amazon
+if [ "$(/usr/bin/bb-detect-platform)" != "amazon" ]; then
+  exit 0
+fi
+
+if grep -q "${LABEL}" /etc/fstab; then
+ exit 0
+fi
+
+n=0
+until [ $n -ge 5 ]
+do
+  raid && break
+  n=$[$n+1]
+  sleep 5
+done
+
+mkdir -p "${MOUNT}"
+chmod 777 "$MOUNT"
+mkfs.ext4 "${DEV}"
+e2label "${DEV}" "${LABEL}"
+echo "LABEL='${LABEL}' ${MOUNT} ext4 defaults,noatime,rw,user,exec 0 0" | tee -a /etc/fstab
+mount -a
+chown -R ubuntu:ubuntu "$MOUNT"
+chmod 777 "$MOUNT"
+exit 0
+
+function raid() {
+    DISKS="/dev/xvdb /dev/xvdc"
+    DISK_COUNT="2"
+
+    for disk in $DISKS; do
+      # AWS can (un)helpfully mount the SSDs automatically
+      umount "${disk}" || true
+      sed -i "/$(basename $disk)/d" /etc/fstab
+      # wipe out the beginning of the disk so no lingering data affects mdam
+      dd if=/dev/zero of="${disk}" bs=4096 count=1024
+    done
+
+    DEV="/dev/md/md-buildbeaver"
+    partprobe
+    mdadm --create --verbose $DEV --level=0 -c256 --raid-devices=$DISK_COUNT $DISKS
+    echo "DEVICE $DEV" | tee /etc/mdadm.conf
+    mdadm --detail --scan | tee -a /etc/mdadm.conf
+}

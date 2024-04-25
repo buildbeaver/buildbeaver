@@ -1,0 +1,44 @@
+#!/bin/bash
+
+IMAGE="{{ logspout.docker_image }}"
+CONTAINER_NAME="logspout"
+
+{% raw %}
+start() { # endpoint
+
+  if [ -z "$1" ]; then
+    echo "Endpoint must be specified"
+  fi
+
+  docker run \
+    -d \
+    --name "${CONTAINER_NAME}" \
+    --restart always \
+    -v "/var/run/docker.sock:/var/run/docker.sock" \
+    "${IMAGE}" \
+    "${1}"
+}
+
+stop() {
+  docker stop "${CONTAINER_NAME}"
+  docker rm -f "${CONTAINER_NAME}"
+}
+
+restart(){
+  stop || true
+  sleep 2
+  start
+}
+
+if [ "$EUID" -ne 0 ]; then
+  echo "Please run as root."
+  exit 1
+fi
+
+case $1 in
+  "start") start $2;;
+  "stop") stop ;;
+  "restart") restart ;;
+  *) echo "Unknown command ${1}" && exit 1;;
+esac
+{% endraw %}

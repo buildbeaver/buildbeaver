@@ -1,0 +1,20 @@
+@keyframes slide {
+  0% {
+    width: 0;
+  }
+  100% {
+    width: 100%;
+  }
+}
+
+.slide-in {
+  // When changing this value you must also change the toastDurationMs in toaster.provider.tsx to match
+  animation-duration: 6000ms;
+  animation-name: slide;
+  animation-timing-function: linear;
+}
+
+.slide-out {
+  @extend .slide-in;
+  animation-direction: reverse;
+}

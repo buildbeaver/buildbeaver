@@ -1,0 +1,6 @@
+---
+- name: Set locale
+  lineinfile: regexp="^LC_ALL=.+" dest=/etc/environment line="LC_ALL=\"en_US.UTF-8\""
+
+- name: Install bb
+  copy: src="{{ playbook_dir }}/../../output/go/bin/bb" dest=/usr/bin/bb owner=root group=root mode=0755

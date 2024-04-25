@@ -1,0 +1,9 @@
+[Unit]
+Description=Runs the BuildBeaver Runner process
+After=network.target bb-ephemeral-ssd.service
+
+[Service]
+ExecStart=/usr/bin/start-bb-runner
+
+[Install]
+WantedBy=multi-user.target

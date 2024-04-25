@@ -1,0 +1,1538 @@
+openapi: 3.0.3
+info:
+  title: BuildBeaver Dynamic Build API - OpenAPI 3.0
+  description: |-
+    This is the BuildBeaver Dynamic Build API.
+  license:
+    name: MIT
+    url: https://opensource.org/license/mit/
+  version: 0.3.00
+externalDocs:
+  description: Find out more about BuildBeaver
+  url: https://github.com/buildbeaver
+servers:
+  - url: http://localhost:3003/api/v1/dynamic
+tags:
+  - name: jobs
+    description: Submitting and reading Build Jobs.
+    externalDocs:
+      description: Find out more about dynamically submitting jobs
+      url: 'https://github.com/buildbeaver'
+paths:
+
+  /ping:
+    get:
+      tags:
+        - build
+      summary: Checks for connectivity to the Dynamic API.
+      description: Checks for connectivity to the Dynamic API.
+      operationId: ping
+      responses:
+        '200':
+          description: Successful operation
+      security:
+        - jwt_build_token: []
+
+  /builds/{buildId}:
+    get:
+      tags:
+        - build
+      summary: Reads the current build graph for a build.
+      description: Reads the entire current build graph for a build, including all jobs and steps and their current status.
+      operationId: getBuild
+      parameters:
+        - name: buildId
+          in: path
+          required: true
+          description: The ID of the build to read.
+          schema:
+            type: string
+          example: 'build:4738115e-070a-44fe-bce0-b43582583eaa'
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BuildGraph'
+      security:
+        - jwt_build_token: []
+
+  /builds/{buildId}/artifacts:
+    get:
+      tags:
+        - build
+      summary: Reads information about all or some artifacts from a build.
+      description: Reads a paginated list containing information about artifacts from the build, optionally filtered by search criteria.
+      operationId: listArtifacts
+      parameters:
+        - name: buildId
+          in: path
+          required: true
+          description: The ID of the build to read artifacts for.
+          schema:
+            type: string
+          example: 'build:4738115e-070a-44fe-bce0-b43582583eaa'
+        - name: workflow
+          in: query
+          required: false
+          description: If provided, only artifacts produced by this workflow will be returned.
+          schema:
+            type: string
+          example: build-all
+        - name: job_name
+          in: query
+          required: false
+          description: If provided, only artifacts produced by this job will be returned.
+          schema:
+            type: string
+          example: build-all
+        - name: group_name
+          in: query
+          required: false
+          description: If provided, only artifacts associated with this artifact group name will be returned. This name much match the name provided in the build definition.
+          schema:
+            type: string
+          example: reports
+        - name: cursor
+          in: query
+          required: false
+          description: An opaque value obtained from a prior results page that can be used to request the next or previous page of results. If not specified then the first page of results will be returned.
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          description: The maximum number of results to return from this call. Additional results will be available in other pages via the returned cursor values.
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ArtifactsPaginatedResponse'
+          links:
+            next:
+              operationId: listArtifacts
+              parameters:
+                # get the `id` field from the request path parameter named `id`
+                buildID: $request.path.buildId
+      security:
+        - jwt_build_token: []
+
+  /builds/{buildId}/jobs:
+    post:
+      tags:
+        - jobs
+      summary: Creates and add a set of jobs to a build.
+      description: Dynamically adds a new set of jobs to a build. These jobs can reference each other and all previously submitted jobs for the build, and together form the DAG for the build.
+      operationId: createJobs
+      parameters:
+        - name: buildId
+          in: path
+          required: true
+          description: The ID of the build to which these jobs will be added
+          schema:
+            type: string
+          example: 'build:4738115e-070a-44fe-bce0-b43582583eaa'
+      requestBody:
+        description: Definitions for a set of jobs to create and add to a build
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BuildDefinition'
+        required: true
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobGraphs'
+        '400':
+          description: Invalid input
+      security:
+        - jwt_build_token: []
+
+  /builds/{buildId}/events:
+    get:
+      tags:
+        - events
+      summary: Reads events relating to a build.
+      description: Reads events relating to a build that are newer than the last event previously read. Returns immediately if no new events are available.
+      operationId: getEvents
+      parameters:
+        - name: buildId
+          in: path
+          required: true
+          description: The ID of the build to read events for
+          schema:
+            type: string
+          example: 'build:4738115e-070a-44fe-bce0-b43582583eaa'
+        - name: last
+          in: query
+          required: false
+          description: The sequence number of the last event previously received; only events with higher sequence numbers than this will be returned.
+          schema:
+            type: integer
+            format: int64
+          example: 350
+        - name: limit
+          in: query
+          required: false
+          description: The maximum number of events to return
+          schema:
+            type: integer
+            format: int64
+          example: '100'
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Events'
+        '400':
+          description: Invalid input
+      security:
+        - jwt_build_token: []
+
+  /jobs/{jobId}:
+    get:
+      tags:
+        - build
+      summary: Reads information about a job.
+      description: Reads information about a job. This includes the job's current status, but does not include steps within the job.
+      operationId: getJob
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          description: The ID of the job to read.
+          schema:
+            type: string
+          example: 'job:5238115e-070a-44fe-bce0-b43582583eff'
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Job'
+      security:
+        - jwt_build_token: []
+
+  /jobs/{jobId}/graph:
+    get:
+      tags:
+        - build
+      summary: Reads information about a job's graph.
+      description: Reads information about a job's graph, including information about the job's steps.
+      operationId: getJobGraph
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          description: The ID of the job to read.
+          schema:
+            type: string
+          example: 'job:5238115e-070a-44fe-bce0-b43582583eff'
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobGraph'
+      security:
+        - jwt_build_token: []
+
+  /artifacts/{artifactId}:
+    get:
+      tags:
+        - build
+      summary: Reads information about an artifact.
+      description: Reads information about a particular artifact, not the artifact data itself.
+      operationId: getArtifact
+      parameters:
+        - name: artifactId
+          in: path
+          required: true
+          description: The ID of the artifact to read information about.
+          schema:
+            type: string
+          example: 'artifact:5238115e-070a-44fe-bce0-b43582583eff'
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Artifact'
+      security:
+        - jwt_build_token: []
+
+  /artifacts/{artifactId}/data:
+    get:
+      tags:
+        - build
+      summary: Reads the data for an artifact.
+      description: Reads the data for a particular artifact.
+      operationId: getArtifactData
+      parameters:
+        - name: artifactId
+          in: path
+          required: true
+          description: The ID of the artifact to read information about.
+          schema:
+            type: string
+          example: 'artifact:5238115e-070a-44fe-bce0-b43582583eff'
+      responses:
+        '200':
+          description: Successfully fetched the data for an artifact
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+      security:
+        - jwt_build_token: []
+
+  /logs/{logDescriptorId}:
+    get:
+      tags:
+        - build
+      summary: Fetches a Log Descriptor containing information about part of a log.
+      description: Fetches a Log Descriptor containing information about part of a log.
+      operationId: getLogDescriptor
+      parameters:
+        - name: logDescriptorId
+          in: path
+          required: true
+          description: The ID of the log descriptor to read.
+          schema:
+            type: string
+          example: 'log-descriptor:5238115e-070a-44fe-bce0-b43582583eff'
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LogDescriptor'
+      security:
+        - jwt_build_token: []
+
+  /logs/{logDescriptorId}/data:
+    get:
+      tags:
+        - build
+      summary: Reads part of a log.
+      description: Reads the part of the data for a log, identified by the specified Log Descriptor ID.
+      operationId: getLogData
+      parameters:
+        - name: logDescriptorId
+          in: path
+          required: true
+          description: A Log Descriptor ID identifying the part of the log to read data from.
+          schema:
+            type: string
+          example: 'log-descriptor:5238115e-070a-44fe-bce0-b43582583eff'
+        - name: start
+          in: query
+          required: false
+          description: If provided, only log entries with sequence numbers greater than or equal to start will be returned. Note that expand and start cannot both be specified.
+          schema:
+            type: integer
+        - name: plaintext
+          in: query
+          required: false
+          description: True if the log data should be streamed as plain text, or false to stream a series of log entries as JSON.
+          schema:
+            type: boolean
+        - name: expand
+          in: query
+          required: false
+          description: True to expand nested log blocks in the returned data, or false to only include a summary. Note that expand and start cannot both be specified.
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: Successfully fetched data from a log.
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+      security:
+        - jwt_build_token: []
+components:
+  schemas:
+
+    # Build graph and related schemas, as returned from the server
+
+    BuildGraph:
+      type: object
+      required:
+        - build
+        - jobs
+        - repo
+        - commit
+      properties:
+        build:
+          $ref: '#/components/schemas/Build'
+        jobs:
+          type: array
+          description: The current set of jobs making up the build, including the full job graph/steps for each.
+          items:
+            $ref: '#/components/schemas/JobGraph'
+        repo:
+          $ref: '#/components/schemas/Repo'
+        commit:
+          $ref: '#/components/schemas/Commit'
+
+    Build:
+      type: object
+      required:
+        - url
+        - id
+        - created_at
+        - updated_at
+        - etag
+        - name
+        - repo_id
+        - commit_id
+        - log_descriptor_id
+        - ref
+        - status
+        - timings
+        - opts
+        - log_descriptor_url
+        - artifact_search_url
+      properties:
+        url:
+          type: string
+          description: A link to the Build resource on the BuildBeaver server
+        # Metadata
+        id:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        deleted_at:
+          type: string
+          format: date-time
+        etag:
+          type: string
+        # Build Data
+        name:
+          type: string
+          description: Name of the build, in URL format. Build names are typically numbers converted to strings.
+          example: '234'
+        repo_id:
+          type: string
+          description: RepoID of the repo being built.
+        commit_id:
+          type: string
+          description: CommitID that is being built.
+        log_descriptor_id:
+          type: string
+          description: LogDescriptorID for the log for this build.
+        ref:
+          type: string
+          description: Ref is the git ref the build is for (e.g. branch or tag).
+        status:
+          type: string
+          description: Status reflects where the build is in the queue.
+        timings:
+          $ref: '#/components/schemas/WorkflowTimings'
+        error:
+          type: string
+          description: Error is set if the build finished with an error (or nil if the build succeeded).
+        opts:
+          $ref: '#/components/schemas/BuildOptions'
+        # Additional URLs
+        log_descriptor_url:
+          type: string
+          description: URL of the log for this build.
+        artifact_search_url:
+          type: string
+          description: URL to use for searching for artifacts from this build.
+
+    BuildOptions:
+      type: object
+      required:
+        - force
+        - nodes_to_run
+      properties:
+        force:
+          type: boolean
+          description: True to force all jobs in the build to run by ignoring fingerprints.
+        nodes_to_run:
+          type: array
+          description: Contains zero or more workflows, jobs and steps to run. If no nodes are specified then all workflows, jobs and steps will be run.
+          items:
+            $ref: '#/components/schemas/NodeFQN'
+
+    NodeFQN:
+      type: object
+      required:
+        - workflow_name
+        - job_name
+        - step_name
+      properties:
+        workflow_name:
+          type: string
+        job_name:
+          type: string
+        step_name:
+          type: string
+
+    JobGraphs:
+      type: array
+      items:
+        $ref: '#/components/schemas/JobGraph'
+
+    JobGraph:
+      type: object
+      required:
+        - job
+        - steps
+      properties:
+        job:
+          $ref: '#/components/schemas/Job'
+        steps:
+          type: array
+          description: The set of steps within the job
+          items:
+            $ref: '#/components/schemas/Step'
+
+    Job:
+      type: object
+      required:
+        - url
+        - id
+        - created_at
+        - updated_at
+        - etag
+        - name
+        - workflow
+        - description
+        - environment
+        - type
+        - runs_on
+        - step_execution
+        - depends
+        - services
+        - fingerprint_commands
+        - build_id
+        - repo_id
+        - commit_id
+        - log_descriptor_id
+        - runner_id
+        - indirect_to_job_id
+        - ref
+        - status
+        - timings
+        - log_descriptor_url
+        - indirect_job_url
+      properties:
+        url:
+          type: string
+          description: A link to the Job resource on the BuildBeaver server
+        # Metadata
+        id:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        deleted_at:
+          type: string
+          format: date-time
+        etag:
+          type: string
+        # Job Definition Data
+        name:
+          type: string
+          description: Job name, in URL format
+          example: 'generate-code'
+        workflow:
+          type: string
+          description: Workflow the job is a part of, or empty if the job is part of the default workflow.
+          example: 'front-end'
+        description:
+          type: string
+          description: Optional human-readable description of the job.
+        type:
+          type: string
+          description: Type of the job (e.g. docker, exec etc.)
+          enum:
+            - docker
+            - exec
+        runs_on:
+          type: array
+          description: RunsOn contains a set of labels that this job requires runners to have.
+          items:
+            type: string
+        docker:
+          $ref: '#/components/schemas/DockerConfig'
+        step_execution:
+          type: string
+          description: Determines how the runner will execute steps within this job
+          enum:
+            - sequential
+            - parallel
+        depends:
+          type: array
+          description: Dependencies on other jobs and their artifacts. Each JobDependency declares that this job depends on the successful execution of another, and optionally that this job consumes one or more artifacts from the other.
+          items:
+            $ref: '#/components/schemas/JobDependency'
+        services:
+          type: array
+          description: Services to run in the background for the duration of the job; services are started before the first step is run, and stopped after the last step completes
+          items:
+            $ref: '#/components/schemas/Service'
+        fingerprint_commands:
+          type: array
+          description: Shell commands to execute to generate a unique fingerprint for the jobs; two jobs in the same repo with the same name and fingerprint are considered identical
+          items:
+            type: string
+        artifacts:
+          type: array
+          description: A list of all artifacts the job is expected to produce that will be saved to the artifact store at the end of the job's execution
+          items:
+            $ref: '#/components/schemas/ArtifactDefinition'
+        environment:
+          type: array
+          description: A list of environment variables to export prior to executing the job
+          items:
+            $ref: '#/components/schemas/EnvVar'
+        # Other data
+        build_id:
+          type: string
+          description: ID of the build this job forms a part of.
+        repo_id:
+          type: string
+          description: RepoID that was committed to.
+        commit_id:
+          type: string
+          description: CommitID that the job was generated from.
+        log_descriptor_id:
+          type: string
+          description: LogDescriptorID points to the log for this job.
+        runner_id:
+          type: string
+          description: RunnerID is the id of the runner this job executed on, or empty if the job has not run yet (or did/will not run).
+        indirect_to_job_id:
+          type: string
+          description: IndirectToJobID records the ID of a job that previously ran successfully as part of another build and which is functionally identical to this job. If this is set it means this job did not actually run to avoid redundantly running the same thing more than once.
+        ref:
+          type: string
+          description: Ref is the git ref from the build that the job was generated from (e.g. branch or tag)
+        status:
+          type: string
+          description: Status reflects where the job is in the queue.
+        error:
+          type: string
+          description: Error is set if the job finished with an error (or empty if the job succeeded).
+        timings:
+          $ref: '#/components/schemas/WorkflowTimings'
+        fingerprint:
+          type: string
+          description: Fingerprint contains the hashed output of FingerprintCommands, as well as any other inputs the agent added (such as artifact hashes). This is only available after the job has run successfully.
+        fingerprint_hash_type:
+          type: string
+          description: FingerprintHashType is the type of hashing algorithm used to produce the fingerprint.
+        # Additional URLs
+        log_descriptor_url:
+          type: string
+          description: URL of the log for this job.
+        indirect_job_url:
+          type: string
+          description: URL to the job that this job indirects to, if any.
+
+    DockerConfig:
+      type: object
+      required:
+        - image
+        - pull
+      properties:
+        image:
+          type: string
+          description: The default Docker image to run the job steps in, if the job is of type Docker
+          example: 'golang:1.14.7'
+        pull:
+          type: string
+          description: Determines if/when the Docker image is pulled during job execution, if the job is of type Docker
+          enum:
+            - default
+            - never
+            - always
+            - if-not-exists
+        basic_auth:
+          $ref: '#/components/schemas/DockerBasicAuth'
+        aws_auth:
+          $ref: '#/components/schemas/DockerAWSAuth'
+        shell:
+          type: string
+          description: Path to the shell to use to run build scripts with inside the container
+          example: '/bin/bash'
+
+    JobDependency:
+      type: object
+      required:
+        - workflow
+        - job_name
+        - artifact_dependencies
+      properties:
+        workflow:
+          type: string
+          description: The name of the workflow containing the job that must complete, or an empty string for the default workflow.
+        job_name:
+          type: string
+          description: The name of the job that must complete.
+        artifact_dependencies:
+          type: array
+          description: The set of artifacts required from the job that must complete.
+          items:
+            $ref: '#/components/schemas/ArtifactDependency'
+
+    ArtifactDependency:
+      type: object
+      required:
+        - workflow
+        - job_name
+        - group_name
+      properties:
+        workflow:
+          type: string
+          description: The name of the workflow containing the job that will produce the artifact(s), or an empty string for the default workflow.
+        job_name:
+          type: string
+          description: The name of the job that that will produce the artifact(s).
+        group_name:
+          type: string
+          description: The name of the group of artifacts.
+
+    Service:
+      type: object
+      required:
+        - name
+        - image
+        - environment
+      properties:
+        name:
+          type: string
+          description: Unique name of the service, within the parent job.
+          example: 'compile'
+        image:
+          type: string
+          description: Name of the Docker image for the service to run.
+          example: 'postgres'
+        basic_auth:
+          $ref: '#/components/schemas/DockerBasicAuth'
+        aws_auth:
+          $ref: '#/components/schemas/DockerAWSAuth'
+        environment:
+          type: array
+          description: A list of environment variables to export prior to starting the service.
+          items:
+            $ref: '#/components/schemas/EnvVar'
+
+    SecretString:
+      type: object
+      required: []
+      properties:
+        value:
+          type: string
+          description: An explicit, non-secret value for an environment variable or field.
+          example: 'postgres'
+        value_from_secret:
+          type: string
+          description: The name of the secret that contains the value, for an environment variable or field.
+          example: 'database_password'
+
+    DockerBasicAuth:
+      type: object
+      required:
+        - username
+        - password
+      properties:
+        username:
+          $ref: '#/components/schemas/SecretString'
+        password:
+          $ref: '#/components/schemas/SecretString'
+
+    DockerAWSAuth:
+      type: object
+      required:
+        - aws_access_key_id
+        - aws_secret_access_key
+      properties:
+        aws_region:
+          type: string
+          description: The ECR AWS region to authenticate to.
+          example: "us-west-2"
+        aws_access_key_id:
+          $ref: '#/components/schemas/SecretString'
+        aws_secret_access_key:
+          $ref: '#/components/schemas/SecretString'
+
+    EnvVar:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          description: Name of the environment variable.
+          example: "database"
+        value:
+          type: string
+          description: Value of the variable, if the variable is set explicitly.
+          example: 'postgres'
+        value_from_secret:
+          type: string
+          description: ValueFromSecret is the name of the secret to set this variable to, if setting the variable to a secret.
+          example: 'database_password'
+
+    Step:
+      type: object
+      required:
+        - url
+        - id
+        - created_at
+        - updated_at
+        - etag
+        - name
+        - description
+        - commands
+        - depends
+        - artifacts
+        - job_id
+        - repo_id
+        - runner_id
+        - log_descriptor_id
+        - status
+        - timings
+        - runner_url
+        - log_descriptor_url
+      properties:
+        url:
+          type: string
+          description: A link to the Step resource on the BuildBeaver server
+        # Metadata
+        id:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        deleted_at:
+          type: string
+          format: date-time
+        etag:
+          type: string
+        # Step Definition data
+        name:
+          type: string
+          description: Step name, in URL format
+          example: 'compile'
+        description:
+          type: string
+          description: Optional human-readable description of the job.
+        commands:
+          type: array
+          description: A list of one or more shell commands to execute during the step.
+          items:
+            type: string
+        depends:
+          type: array
+          description: Dependencies this step has on other steps within the job (see dependency syntax)
+          items:
+            $ref: '#/components/schemas/StepDependency'
+        # Other data
+        job_id:
+          type: string
+          description: ID of the job this step forms a part of
+        repo_id:
+          type: string
+          description: RepoID that the step is building from.
+        runner_id:
+          type: string
+          description: RunnerID that ran the step (or empty if the step has not run yet).
+        log_descriptor_id:
+          type: string
+          description: LogDescriptorID points to the log for this step.
+        status:
+          type: string
+          description: Status reflects where the step is in processing.
+        error:
+          type: string
+          description: Error is set if the step finished with an error (or empty if the step succeeded).
+        timings:
+          $ref: '#/components/schemas/WorkflowTimings'
+        # Additional URLs
+        runner_url:
+          type: string
+          description: URL of the runner that ran the step (or empty if the step has not run yet).
+        log_descriptor_url:
+          type: string
+          description: URL of the log for this step.
+
+    StepDependency:
+      type: object
+      required:
+        - step_name
+      properties:
+        step_name:
+          type: string
+          description: The name of the step that must complete before this step.
+
+    ArtifactsPaginatedResponse:
+      type: object
+      required:
+        - kind
+        - results
+      properties:
+        kind:
+          type: string
+          description: The type of objects contained in the results, in this case 'artifact'
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Artifact'
+        prev_url:
+          type: string
+          description: A URL to fetch to obtain the previous page of results before this one.
+        prev_cursor:
+          type: string
+          description: A cursor that can be used as a query parameter to obtain the previous page of results before this one.
+        next_url:
+          type: string
+          description: A URL to fetch to obtain the next page of results after this one.
+        next_cursor:
+          type: string
+          description: A cursor that can be used as a query parameter to obtain the next page of results after this one.
+
+    Artifact:
+      type: object
+      required:
+        - url
+        - id
+        - created_at
+        - updated_at
+        - etag
+        - name
+        - step_id
+        - group_name
+        - path
+        - hash_type
+        - hash
+        - size
+        - mime
+        - sealed
+        - data_url
+      properties:
+        url:
+          type: string
+          description: A link to the Artifact on the BuildBeaver server
+        # Metadata
+        id:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        etag:
+          type: string
+        # Artifact data
+        name:
+          type: string
+          description: Name of the artifact.
+        step_id:
+          type: string
+          description: The ID of the step (within a job) that created this artifact.
+        group_name:
+          type: string
+          description: The name associated with the one or more artifacts identified by an ArtifactDefinition in the build config.
+        path:
+          type: string
+          description: The filesystem path that the artifact was found at, relative to the job workspace.
+        hash_type:
+          type: string
+          description: tThe type of hashing algorithm used to hash the data.
+          enum:
+            - BLAKE2B
+            - SHA1
+            - SHA256
+            - MD5
+            - FNV
+        hash:
+          type: string
+          description: The hex-encoded hash of the artifact data. This This may be set later if the hash is not known yet.
+        size:
+          type: integer
+          format: uint64
+          description: Size of the artifact file in bytes.
+        mime:
+          type: string
+          description: Mime type of the artifact, or empty if not known.
+        sealed:
+          type: boolean
+          description: Sealed is true once the data for the artifact has successfully been uploaded and the file contents are now locked. Until Sealed is true various pieces of metadata such as the file size and hash etc. will be unset. Note that if sealed is false it doesn't necessarily mean no data has been uploaded to the blob store yet, and so we must still verify that the backing data is deleted before garbage collecting unsealed artifact files.
+        # Additional URLs
+        data_url:
+          type: string
+          description: URL to use for fetching the bytes of data making up the artifact.
+
+    ExternalResourceID:
+      type: object
+      required:
+        - external_system
+        - resource_id
+      properties:
+        external_system:
+          type: string
+          description: The name of the external system, e.g. GitHub
+        resource_id:
+          type: string
+          description: The resource within the external system, e.g. github_repo.id
+
+    WorkflowTimings:
+      type: object
+      required: []
+      properties:
+        queued_at:
+          type: string
+          format: date-time
+        submitted_at:
+          type: string
+          format: date-time
+        running_at:
+          type: string
+          format: date-time
+        finished_at:
+          type: string
+          format: date-time
+        canceled_at:
+          type: string
+          format: date-time
+
+    Repo:
+      type: object
+      required:
+        - url
+        - id
+        - created_at
+        - updated_at
+        - etag
+        - name
+        - description
+        - legal_entity_id
+        - ssh_url
+        - http_url
+        - link
+        - default_branch
+        - private
+        - enabled
+        - external_metadata
+        - builds_url
+        - build_search_url
+        - secrets_url
+      properties:
+        url:
+          type: string
+          description: A link to the Repo resource on the BuildBeaver server.
+        # Metadata
+        id:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        deleted_at:
+          type: string
+          format: date-time
+        etag:
+          type: string
+        # Build Data
+        name:
+          type: string
+          description: Name of the repo.
+          example: 'my-github-repo'
+        description:
+          type: string
+          description: A description of the repo, taken from the Source Control Management system (e.g. GitHub).
+        legal_entity_id:
+          type: string
+          description: The ID of the Legal Entity (person or company) that owns this repo.
+        ssh_url:
+          type: string
+          description: The URL of this repo on the Source Control Management system (e.g. GitHub) for SSH access to the repo.
+        http_url:
+          type: string
+          description: The URL of this repo on the Source Control Management system (e.g. GitHub) for HTTP access to the repo.
+        link:
+          type: string
+          description: A link (URL) to the Repo on the Web, for users to browse to.
+        default_branch:
+          type: string
+          description: The name of the default branch on this repo (typically 'main' or 'master')
+        private:
+          type: boolean
+          description: True if this is a private repo, false if it is public.
+        enabled:
+          type: boolean
+          description: True if builds are enabled for this repo.
+        ssh_key_secret_id:
+          type: string
+          description: The ID of the secret containing the SSH key to use to check out code from the repo.
+        external_id:
+          $ref: '#/components/schemas/ExternalResourceID'
+        external_metadata:
+          type: string
+          description: Extra information relating to the repo in the Source Control Management system (e.g. GitHub). The exact information stored here will depend on which SCM contains the repo.
+        # Additional URLs
+        builds_url:
+          type: string
+          description: URL to fetch a list of builds for this repo.
+        build_search_url:
+          type: string
+          description: URL to search for specific builds for this repo.
+        secrets_url:
+          type: string
+          description: URL to fetch secrets for this repo (subject to access control).
+
+    Commit:
+      type: object
+      required:
+        - id
+        - created_at
+        - repo_id
+        - config_type
+        - sha
+        - message
+        - author_id
+        - author_name
+        - author_email
+        - committer_id
+        - committer_name
+        - committer_email
+        - link
+        - committer_url
+        - author_url
+      properties:
+        # Metadata
+        id:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        # Commit Data
+        repo_id:
+          type: string
+          description: ID of the repo that the commit was made against.
+        config_type:
+          type: string
+          description: The type of the config file found in the commit (Config itself is not included in the document).
+          enum:
+            - yaml
+            - json
+            - jsonnet
+            - unknown
+        sha:
+          type: string
+          description: The unique SHA hash of the commit.
+        message:
+          type: string
+          description: The commit message.
+        author_id:
+          type: string
+          description: The ID of the legal entity that authored the commit, if known.
+        author_name:
+          type: string
+          description: The author name recorded on the commit.
+        author_email:
+          type: string
+          description: The author email address recorded on the commit.
+        committer_id:
+          type: string
+          description: The ID of the legal entity that committed the commit, if known.
+        committer_name:
+          type: string
+          description: The committer name recorded on the commit, if any.
+        committer_email:
+          type: string
+          description: The committer email address recorded on the commit, if any.
+        link:
+          type: string
+          description: A link (URL) to the Commit in the SCM, for users to browse to.
+        # Additional URLs
+        committer_url:
+          type: string
+          description: URL to fetch additional information about the committer of this commit.
+        author_url:
+          type: string
+          description: URL to fetch additional information about the author of this commit.
+
+    # Definitions to be sent to the server, to define new jobs
+    BuildDefinition:
+      type: object
+      required:
+        - version
+        - jobs
+      properties:
+        version:
+          type: string
+          description: The version number of the build definition format used
+          enum:
+            - "0.3"
+        jobs:
+          type: array
+          items:
+            $ref: '#/components/schemas/JobDefinition'
+
+    JobDefinition:
+      type: object
+      required:
+        - environment
+        - name
+        - step_execution
+        - steps
+      properties:
+        name:
+          type: string
+          description: Job name. This can optionally include a workflow as a prefix (dot-separated), as an alternative to specifying an explicit 'workflow' element.
+          example: 'generate-code, or workflow1.generate-code'
+        workflow:
+          type: string
+          description: Workflow the job is a part of. If not specified then the job is part of the default workflow.
+          example: 'workflow1'
+        description:
+          type: string
+          description: Optional human-readable description of the job.
+        type:
+          type: string
+          description: Type of the job (e.g. docker, exec etc.)
+          enum:
+            - docker
+            - exec
+        runs_on:
+          type: array
+          description: RunsOn contains a set of labels that this job requires runners to have.
+          items:
+            type: string
+        docker:
+          $ref: '#/components/schemas/DockerConfigDefinition'
+        step_execution:
+          type: string
+          description: Determines how the runner will execute steps within this job
+          enum:
+            - sequential
+            - parallel
+        depends:
+          type: array
+          description: Dependencies on other jobs and their artifacts (see dependency syntax)
+          items:
+            type: string
+        services:
+          type: array
+          description: Services to run in the background for the duration of the job; services are started before the first step is run, and stopped after the last step completes
+          items:
+            $ref: '#/components/schemas/ServiceDefinition'
+        fingerprint:
+          type: array
+          description: Shell commands to execute to generate a unique fingerprint for the jobs; two jobs in the same repo with the same name and fingerprint are considered identical
+          items:
+            type: string
+        artifacts:
+          type: array
+          description: A list of all artifacts the job is expected to produce that will be saved to the artifact store at the end of the job's execution
+          items:
+            $ref: '#/components/schemas/ArtifactDefinition'
+        environment:
+          type: array
+          description: A list of environment variables to export prior to executing the job
+          additionalProperties:
+            $ref: '#/components/schemas/SecretStringDefinition'
+        steps:
+          type: array
+          description: The set of steps within the job
+          items:
+            $ref: '#/components/schemas/StepDefinition'
+
+    StepDefinition:
+      type: object
+      required:
+        - name
+        - commands
+      properties:
+        name:
+          type: string
+          description: Step name, in URL format
+          example: 'compile'
+        description:
+          type: string
+          description: Optional human-readable description of the job.
+        commands:
+          type: array
+          description: A list of one or more shell commands to execute during the step.
+          items:
+            type: string
+        depends:
+          type: array
+          description: Dependencies this step has on other steps within the job (see dependency syntax)
+          items:
+            type: string
+
+    DockerBasicAuthDefinition:
+      type: object
+      required:
+        - username
+        - password
+      properties:
+        username:
+          $ref: '#/components/schemas/SecretStringDefinition'
+        password:
+          $ref: '#/components/schemas/SecretStringDefinition'
+
+    DockerAWSAuthDefinition:
+      type: object
+      required:
+        - aws_access_key_id
+        - aws_secret_access_key
+      properties:
+        aws_region:
+          type: string
+          description: The ECR AWS region to authenticate to.
+          example: "us-west-2"
+        aws_access_key_id:
+          $ref: '#/components/schemas/SecretStringDefinition'
+        aws_secret_access_key:
+          $ref: '#/components/schemas/SecretStringDefinition'
+
+    DockerConfigDefinition:
+      type: object
+      required:
+        - image
+        - pull
+      properties:
+        image:
+          type: string
+          description: The default Docker image to run the job steps in, if the job is of type Docker
+          example: 'golang:1.14.7'
+        pull:
+          type: string
+          description: Determines if/when the Docker image is pulled during job execution, if the job is of type Docker
+          enum:
+            - default
+            - never
+            - always
+            - if-not-exists
+        basic_auth:
+          $ref: '#/components/schemas/DockerBasicAuthDefinition'
+        aws_auth:
+          $ref: '#/components/schemas/DockerAWSAuthDefinition'
+        shell:
+          type: string
+          description: Path to the shell to use to run build scripts with inside the container
+          example: '/bin/bash'
+
+    ServiceDefinition:
+      type: object
+      required:
+        - name
+        - image
+        - environment
+      properties:
+        name:
+          type: string
+          description: Unique name of the service, within the parent job
+          example: 'compile'
+        image:
+          type: string
+          description: Name of the Docker image for the service to run
+          example: 'postgres'
+        basic_auth:
+          $ref: '#/components/schemas/DockerBasicAuthDefinition'
+        aws_auth:
+          $ref: '#/components/schemas/DockerAWSAuthDefinition'
+        environment:
+          type: array
+          description: A list of environment variables to export prior to executing the service
+          additionalProperties:
+            $ref: '#/components/schemas/SecretStringDefinition'
+
+    ArtifactDefinition:
+      type: object
+      required:
+        - name
+        - paths
+      properties:
+        name:
+          type: string
+          description: Uniquely identifies the group of artifacts specified in paths
+          example: 'compile'
+        paths:
+          type: array
+          description: One or more relative paths to artifacts that should be uploaded at the end of the build; these paths will be globbed, so that each path may identify one or more actual files
+          items:
+            type: string
+
+    runner_api_endpoints:
+      type: object
+      required: []
+      properties:
+        value:
+          type: string
+          description: The value of an environment variable, for variables that do not use secrets.
+          example: 'postgres'
+        from_secret:
+          type: string
+          description: The name of the secret that contains the value, for environment variables that use secrets.
+          example: 'database_password'
+
+    SecretStringDefinition:
+      type: object
+      required: []
+      properties:
+        value:
+          type: string
+          description: The value of an environment variable, for variables that do not use secrets.
+          example: 'postgres'
+        from_secret:
+          type: string
+          description: The name of the secret that contains the value, for environment variables that use secrets.
+          example: 'database_password'
+
+    # Event-related schemas
+
+    Events:
+      type: array
+      items:
+        $ref: '#/components/schemas/Event'
+
+    Event:
+      type: object
+      required:
+        - id
+        - created_at
+        - sequence_number
+        - build_id
+        - type
+        - resource_id
+        - resource_name
+        - payload
+      properties:
+        # Metadata
+        id:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        # Data
+        sequence_number:
+          type: integer
+          format: int64
+          description: SequenceNumber is a monotonically increasing number to provide a well-defined order for events within a build. Event sequence numbers will normally (but not always) be contiguous for a given build.
+        build_id:
+          type: string
+          description: The ID of the build to fetch events for.
+          example: 'build:4738115e-070a-44fe-bce0-b43582583eaa'
+        type:
+          type: string
+          description: The type of event, determining what is expected in the event data.
+          enum:
+            - BuildStatusChanged
+            - JobStatusChanged
+            - StepStatusChanged
+        resource_id:
+          type: string
+          description: The ID of the resource this event is associated with.
+          example: 'job:2238115e-070a-44fe-bce0-b43582583edd'
+        workflow:
+          type: string
+          description: The name of the workflow this event is associated with, if applicable
+          example: 'front-end-workflow'
+        job_name:
+          type: string
+          description: The name of the job this event relates to, if applicable
+          example: 'generate-code'
+        resource_name:
+          type: string
+          description: The name of the resource this event is associated with. For job-related events this will be the same as job_name.
+          example: 'generate-code'
+        payload:
+          type: string
+          description: Payload provides additional information for the event. The format of the payload data depends on the event Type.
+
+    # Log-related schemas
+
+    LogDescriptor:
+      type: object
+      required:
+        - url
+        - id
+        - created_at
+        - updated_at
+        - etag
+        - parent_log_id
+        - resource_id
+        - sealed
+        - size_bytes
+        - data_url
+      properties:
+        url:
+          type: string
+          description: A link to the Log Descriptor on the BuildBeaver server
+        # Metadata
+        id:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        etag:
+          type: string
+        # Log Descriptor data
+        parent_log_id:
+          type: string
+          description: The ID of the log descriptor that this one is nested within.
+        resource_id:
+          type: string
+          description: The ID of the resource that this log belongs to.
+        sealed:
+          type: boolean
+          description: Sealed is set to true when the log is completed and has become immutable.
+        size_bytes:
+          type: integer
+          format: int64
+          description: The size of the log, in bytes, calculated and set at the time the log is sealed.
+        # Additional URLs
+        data_url:
+          type: string
+          description: URL to use for fetching the log data.
+
+
+  securitySchemes:
+    jwt_build_token:
+      type: apiKey
+      name: Authorization
+      in: header

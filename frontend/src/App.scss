@@ -1,0 +1,84 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import "styles/table";
+
+@import url('https://fonts.googleapis.com/css?family=Inter');
+@import url('https://fonts.googleapis.com/css?family=Roboto+Mono');
+
+#app {
+  @apply flex h-full;
+}
+
+body {
+  @apply h-full;
+}
+
+html {
+  @apply h-full;
+}
+
+.btn {
+  @apply cursor-pointer font-bold rounded text-center w-48;
+}
+
+.btn:disabled {
+  @apply bg-gray-200 text-gray-600;
+}
+
+.btn:disabled:hover {
+  @apply bg-gray-200 text-gray-600;
+}
+
+.btn-full {
+  @apply w-full;
+}
+
+.btn-large {
+  @apply w-40;
+}
+
+.btn-regular {
+  @apply w-32;
+}
+
+.btn-small {
+  @apply w-24;
+}
+
+.btn-x-small {
+  @apply w-20;
+}
+
+.btn-primary {
+  @apply bg-primary shadow-md text-white;
+}
+
+.btn-primary:hover {
+  @apply bg-gray-200 text-gray-600;
+}
+
+.btn-secondary {
+  @apply bg-white border border-primary shadow-md text-gray-600;
+}
+
+.btn-secondary:hover {
+  @apply bg-gray-200 text-gray-600;
+}
+
+.btn-danger {
+  @apply bg-red-600 shadow-md text-white;
+}
+
+.btn-danger:hover {
+  @apply bg-red-700;
+}
+
+input.solid-input, textarea.solid-input {
+  @apply mt-1 block w-full rounded-md bg-gray-100 border-transparent focus:border-gray-500 focus:bg-white focus:ring-0;
+}
+
+input[aria-invalid=true], textarea[aria-invalid=true] {
+  @apply border-rose-600;
+}

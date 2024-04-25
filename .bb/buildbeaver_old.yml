@@ -1,0 +1,222 @@
+version: "0.2"
+
+templates:
+  use_go_builder_docker_image: &use_go_builder_docker_image
+    image: 733436759586.dkr.ecr.us-west-2.amazonaws.com/go-builder:${{ jobs.backend-base-images.fingerprint }}
+    pull: if-not-exists
+    aws_auth:
+      aws_region: us-west-2
+      aws_access_key_id:
+        from_secret: AWS_ACCESS_KEY_ID
+      aws_secret_access_key:
+        from_secret: AWS_SECRET_ACCESS_KEY
+
+  use_nodejs_docker_image: &use_nodejs_docker_image
+    image: node:16.16.0-buster
+    pull: if-not-exists
+    shell: /bin/bash
+
+  go_job_fingerprint: &go_job_fingerprint
+    - find build/scripts -type f | sort | xargs sha1sum
+    - find backend/ -name '*.go' -not -path "*/vendor/*" -type f | sort | xargs sha1sum
+    - sha1sum backend/go.mod
+    - sha1sum backend/go.sum
+
+  frontend_job_fingerprint: &frontend_job_fingerprint
+    - find build/scripts -type f | sort | xargs sha1sum
+    - find frontend/ -not -path "*/node_modules/*" -not -path "frontend/public/*" -type f | sort | xargs sha1sum
+
+jobs:
+  - name: backend-base-images
+    description: Builds the base image needed for the build pipeline
+    docker:
+      image: docker:20.10
+      pull: if-not-exists
+    fingerprint:
+      - sha1sum build/docker/go-builder/Dockerfile
+    steps:
+      - name: go-builder
+        commands: |
+          apk add bash git aws-cli
+          git config --global --add safe.directory $(pwd)
+          ./build/scripts/build-docker.sh -t $BB_JOB_FINGERPRINT -p go-builder
+        environment:
+          AWS_ACCESS_KEY_ID:
+            from_secret: AWS_ACCESS_KEY_ID
+          AWS_SECRET_ACCESS_KEY:
+            from_secret: AWS_SECRET_ACCESS_KEY
+
+  - name: backend-preflight
+    description: Performs preflight checks on all backend code
+    depends: backend-base-images
+    docker: *use_go_builder_docker_image
+    fingerprint: *go_job_fingerprint
+    steps:
+      - name: lint
+        commands: |
+          ./build/scripts/ci/backend-preflight-lint.sh
+
+  - name: backend-generate
+    description: Generates all backend code (wire files, protobufs etc.)
+    depends: [backend-base-images, backend-preflight]
+    docker: *use_go_builder_docker_image
+    fingerprint: *go_job_fingerprint
+    steps:
+      - name: wire
+        commands: |
+          ./build/scripts/ci/backend-generate-wire.sh
+    artifacts:
+      - name: wire
+        paths: [ backend/*/app/wire_gen.go, backend/*/app/*/wire_gen.go ]
+      - name: grpc
+        paths: backend/api/grpc/*.pb.go
+
+  - name: backend-openapi
+    description: Generates API Clients from our OpenAPI specs
+    docker:
+      image: openapitools/openapi-generator-cli:v6.5.0
+      pull: if-not-exists
+      shell: /bin/bash
+    fingerprint: sha1sum backend/server/api/rest/openapi/dynamic-openapi.yaml
+    steps:
+      - name: core-go
+        commands: |
+          ./build/scripts/ci/backend-openapi.sh core-openapi.yaml go sdk/core/go/generated/openapi
+      - name: core-python
+        commands: |
+          ./build/scripts/ci/backend-openapi.sh core-openapi.yaml python sdk/core/python/generated/openapi
+      - name: dynamic-go
+        commands: |
+          ./build/scripts/ci/backend-openapi.sh dynamic-openapi.yaml go sdk/dynamic/go/generated/openapi
+    artifacts:
+      - name: core-sdk-go
+        paths: sdk/core/go/generated/**/*
+      - name: core-sdk-python
+        paths: sdk/core/python/generated/**/*
+      - name: dynamic-sdk-go
+        paths: sdk/dynamic/go/generated/**/*
+
+  - name: backend-unit-test-sqlite
+    description: Runs all backend unit tests on top of SQLite
+    depends: [ backend-base-images, backend-generate.artifacts ]
+    docker: *use_go_builder_docker_image
+    fingerprint: *go_job_fingerprint
+    steps:
+      - name: test
+        commands: |
+          . build/scripts/lib/go-env.sh
+          cd backend && go test -v -count=1 -mod=vendor -short ./...
+        environment:
+          TEST_DB_DRIVER: sqlite3
+
+  - name: backend-unit-test-postgres
+    description: Runs all backend unit tests on top of Postgres
+    depends: [ backend-base-images, backend-generate.artifacts ]
+    docker: *use_go_builder_docker_image
+    fingerprint: *go_job_fingerprint
+    steps:
+      - name: test
+        commands: |
+          . build/scripts/lib/go-env.sh
+          cd backend && go test -v -count=1 -mod=vendor -short ./...
+        environment:
+          TEST_DB_DRIVER: postgres
+          TEST_CONNECTION_STRING: postgres://buildbeaver:password@postgres:5432/?sslmode=disable
+    services:
+      - name: postgres
+        image: postgres:14
+        environment:
+          POSTGRES_USER: buildbeaver
+          POSTGRES_PASSWORD: password
+
+  - name: backend-integration-test-sqlite
+    description: Runs all backend integration tests on top of SQLite
+    depends: [ backend-base-images, backend-generate.artifacts ]
+    docker: *use_go_builder_docker_image
+    fingerprint: *go_job_fingerprint
+    steps:
+      - name: test
+        commands: |
+          . build/scripts/lib/go-env.sh
+          cd backend && go test -v -count=1 -mod=vendor -run Integration ./...
+        environment:
+          TEST_DB_DRIVER: sqlite3
+
+  - name: backend-integration-test-postgres
+    description: Runs all backend integration tests on top of Postgres
+    depends: [ backend-base-images, backend-generate.artifacts ]
+    docker: *use_go_builder_docker_image
+    fingerprint: *go_job_fingerprint
+    steps:
+      - name: test
+        commands: |
+          . build/scripts/lib/go-env.sh
+          cd backend && go test -v -count=1 -mod=vendor -run Integration ./...
+        environment:
+          TEST_DB_DRIVER: postgres
+          TEST_CONNECTION_STRING: postgres://buildbeaver:password@postgres:5432/?sslmode=disable
+    services:
+      - name: postgres
+        image: postgres:14
+        environment:
+          POSTGRES_USER: buildbeaver
+          POSTGRES_PASSWORD: password
+
+  - name: backend-build
+    description: Builds all backend binaries
+    depends:
+      - backend-base-images
+      - backend-generate.artifacts
+      - backend-unit-test-sqlite
+      - backend-unit-test-postgres
+      - backend-integration-test-sqlite
+      - backend-integration-test-postgres
+    docker: *use_go_builder_docker_image
+    fingerprint: *go_job_fingerprint
+    steps:
+      - name: go
+        commands: |
+          ./build/scripts/ci/backend-build.sh
+    artifacts:
+      - build/output/go/bin/*
+
+  - name: frontend-preflight
+    description: Performs preflight checks on all frontend code
+    docker: *use_nodejs_docker_image
+    fingerprint: *frontend_job_fingerprint
+    steps:
+      - name: lint
+        commands: |
+          npm install --location=global prettier
+          ./build/scripts/ci/frontend-preflight-lint.sh
+
+  - name: frontend-unit-test
+    description: Runs all frontend unit tests
+    depends: frontend-preflight
+    docker: *use_nodejs_docker_image
+    fingerprint: *frontend_job_fingerprint
+    steps:
+      - name: install
+        commands: |
+          . build/scripts/lib/node-env.sh
+          cd frontend && yarn install
+      - name: test
+        commands: |
+          . build/scripts/lib/node-env.sh
+          cd frontend && yarn test
+
+  - name: frontend-build
+    description: Builds all frontend code
+    depends: frontend-unit-test
+    docker: *use_nodejs_docker_image
+    fingerprint: *frontend_job_fingerprint
+    steps:
+      - name: install
+        commands: |
+          . build/scripts/lib/node-env.sh
+          cd frontend && yarn install
+      - name: build
+        commands: |
+          . build/scripts/lib/node-env.sh
+          cd frontend && yarn build
+

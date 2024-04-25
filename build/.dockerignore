@@ -1,0 +1,7 @@
+ansible
+packer
+scripts
+output/go/cache
+output/node
+output/packer
+output/terraform

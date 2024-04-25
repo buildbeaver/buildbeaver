@@ -1,0 +1,21 @@
+---
+- name: Add Docker GPG apt Key
+  apt_key:
+    url: https://download.docker.com/linux/ubuntu/gpg
+    state: present
+
+- name: Add Docker Repository
+  apt_repository:
+    repo: deb https://download.docker.com/linux/ubuntu focal stable
+    state: present
+
+- name: Update apt and install docker-ce
+  apt: name={{ item }} state=present update_cache=yes
+  with_items:
+    - docker-ce
+
+- name: Add user to Docker group
+  user:
+    name: "{{ host.username }}"
+    groups: docker
+    append: yes

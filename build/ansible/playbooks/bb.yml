@@ -1,0 +1,8 @@
+---
+- name: Configure BB (CLI) Machines
+  become: true
+  gather_facts: yes
+  hosts: bb-servers
+  roles:
+    - role: bb
+    - role: docker

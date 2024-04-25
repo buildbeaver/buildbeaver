@@ -1,0 +1,139 @@
+openapi: 3.0.3
+info:
+  title: BuildBeaver Client API - OpenAPI 3.0
+  description: |-
+    This is the BuildBeaver Core API. See [the BuildBeaver Web site](https://buildbeaver.github.io) for more details.
+  # TODO: Terms of Service
+  termsOfService: https://buildbeaver.github.io
+  license:
+    name: MIT
+    url: https://opensource.org/license/mit/
+  version: 0.1.00
+externalDocs:
+  description: Find out more about BuildBeaver
+  url: https://github.com/buildbeaver
+servers:
+  - url: http://localhost:3001/api/v1
+tags:
+  - name: runners
+    description: Registering and discovering build runners.
+    externalDocs:
+      description: Find out more about registering runners
+      url: 'https://github.com/buildbeaver'
+paths:
+  /legal-entities/{legalEntityId}/runners:
+    post:
+      tags:
+        - runners
+      summary: Registers a new runner for a legal entity.
+      description: Registers a new runner for running builds on repos owned by a particular legal entity (user or organization).
+      operationId: createRunner
+      parameters:
+        - name: legalEntityId
+          in: path
+          required: true
+          description: The ID of the Legal Entity to register the runner against.
+          schema:
+            type: string
+          example: 'build:4738115e-070a-44fe-bce0-b43582583eaa'
+      requestBody:
+        description: Runner registration information, used to submit a request to create a new runner.
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRunnerRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Runner'
+        '400':
+          description: Invalid input data
+      security:
+        - secret_token: []
+
+components:
+  schemas:
+
+    CreateRunnerRequest:
+      type: object
+      required:
+        - name
+        - client_certificate_pem
+      properties:
+        name:
+          type: string
+          description: A name for the runner, unique within the Legal Entity. Must only contain alphanumeric, dash or underscore characters.
+        client_certificate_pem:
+          type: string
+          description: The PEM-encoded client certificate for the runner, used for client-certificate authentication.
+
+    Runner:
+      type: object
+      required:
+        - url
+        - id
+        - created_at
+        - updated_at
+        - etag
+        - name
+        - legal_entity_id
+        - software_version
+        - operating_system
+        - architecture
+        - supported_job_types
+        - labels
+      properties:
+        url:
+          type: string
+          description: A link to the Runner resource on the server
+        # Metadata
+        id:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        deleted_at:
+          type: string
+          format: date-time
+        etag:
+          type: string
+        # Runner Data
+        name:
+          type: string
+          description: Runner name, unique within a user or organization.
+          example: 'linux-build-runner'
+        legal_entity_id:
+          type: string
+          description: ID of the legal entity (user or organization) the runner is registered with.
+        software_version:
+          type: string
+          description: The software version of the runner process.
+        operating_system:
+          type: string
+          description: The operating system the runner process is currently running on.
+        architecture:
+          type: string
+          description: The processor architecture the runner process is currently running on.
+        supported_job_types:
+          type: array
+          description: The one or more job types this runner supports.
+          items:
+            type: string
+        labels:
+          type: array
+          description: The set of labels this runner is configured with.
+          items:
+            type: string
+
+  securitySchemes:
+    secret_token:
+      type: apiKey
+      name: Authorization
+      in: header

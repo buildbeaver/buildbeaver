@@ -1,0 +1,21 @@
+linters:
+  enable:
+    - dogsled
+    - dupl
+    - gofmt
+    - goimports
+    - gosec
+    - misspell
+    - nakedret
+    - stylecheck
+    - unconvert
+    - unparam
+    - whitespace
+    - errcheck
+    - gosimple
+    - staticcheck
+    - ineffassign
+    - unused
+    - staticcheck
+issues:
+  exclude-use-default: false

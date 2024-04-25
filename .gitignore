@@ -1,0 +1,12 @@
+.build/
+build/output/
+.idea/
+wire_gen.go
+.DS_Store
+build/terraform/lambda/index.js.zip
+build/terraform/environment/lambda/index.js.zip
+test/lib/__pycache__
+
+sdk/core/go/client/
+sdk/core/python/client/
+sdk/dynamic/go/client/

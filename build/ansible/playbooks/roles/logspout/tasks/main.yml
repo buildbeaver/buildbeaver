@@ -1,0 +1,9 @@
+---
+- name: Install Logspout Docker Image
+  docker_image:
+    name: "{{ logspout.docker_image }}"
+    source: pull
+    state: present
+
+- name: Install logspout-ctl script
+  template: src=logspout-ctl.j2 dest=/usr/bin/logspout-ctl owner=root group=root mode=0755

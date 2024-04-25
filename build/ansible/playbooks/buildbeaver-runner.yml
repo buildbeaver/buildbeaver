@@ -1,0 +1,12 @@
+---
+- name: Configure BuildBeaver Runner machine(s)
+  become: true
+  gather_facts: yes
+  hosts: buildbeaver-runners
+  roles:
+    - role: runner
+    - role: docker
+    - role: geerlingguy.ntp
+      ntp_enabled: true
+    - role: logspout
+    - role: prometheus-node-exporter

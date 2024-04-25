@@ -1,0 +1,95 @@
+---
+- name: Set locale
+  lineinfile: regexp="^LC_ALL=.+" dest=/etc/environment line="LC_ALL=\"en_US.UTF-8\""
+
+# NOTE Must install aptitude before upgrading packages
+- name: Install apt packages
+  apt: name={{ item }} state=present
+  with_items:
+#    - aptitude
+    - software-properties-common
+
+- name: Upgrade all packages to the latest version
+  apt:
+    upgrade: yes
+    update_cache: yes
+
+- name: Install apt packages
+  apt: name={{ item }} state=present
+  with_items:
+    - ntp
+    - python3-pip
+
+# NOTE: This is a requirement to be able to run docker_image Ansible tasks
+- name: Install Docker Module for Python
+  pip:
+    name: docker
+
+- name: Populate Environment Variables
+  become: true
+  vars:
+    runner_env:
+      - key: BB_VAR_runner_api_endpoints
+        value: "{{ runner_env_runner_api_endpoints }}"
+      - key: BB_VAR_dynamic_api_endpoint
+        value: "{{ runner_env_dynamic_api_endpoint }}"
+      - key: BB_VAR_dev_insecure_skip_verify
+        value: true
+  ansible.builtin.lineinfile:
+    dest: "/etc/environment"
+    state: present
+    regexp: "^{{ item.key }}="
+    line: "{{ item.key }}={{ item.value }}"
+  with_items: "{{ runner_env }}"
+
+- name: Install bb-runner
+  copy: src="{{ playbook_dir }}/../../output/go/bin/bb-runner" dest=/usr/bin/bb-runner owner=root group=root mode=0755
+
+- name: Install bb-detect-platform script
+  copy: src=bb-detect-platform dest=/usr/bin/ owner=root group=root mode=0755
+
+- name: Install start-bb-runner script
+  copy: src=start-bb-runner dest=/usr/bin/ owner=root group=root mode=0755
+
+- name: Install bb-runner service
+  copy: src=bb-runner.service dest=/etc/systemd/system/ owner=root group=root mode=0664
+
+- name: Install bb-ephemeral-ssd service dependencies
+  apt: name=mdadm state=present
+
+- name: Install bb-ephemeral-ssd service
+  copy: src=bb-ephemeral-ssd.service dest=/etc/systemd/system/ owner=root group=root mode=664
+
+- name: Reload service configs
+  ansible.builtin.systemd:
+    daemon_reexec: yes
+
+- name: Enable bb-runner service
+  ansible.builtin.systemd:
+    name: bb-runner
+    enabled: yes
+    masked: no
+
+- name: Enable bb-ephemeral-ssd service
+  ansible.builtin.systemd:
+    name: bb-ephemeral-ssd
+    enabled: yes
+    masked: no
+
+- name: Create generic BuildBeaver etc dir
+  file: path=/etc/buildbeaver state=directory
+
+- include_vars: default_version.yml
+  when: buildbeaver_version is not defined
+
+- name: Create /buildbeaver directory
+  file: path=/buildbeaver state=directory mode=0755 owner={{ host.username }} group={{ host.username }}
+
+- name: Create mnt dir
+  file: path=/mnt/buildbeaver state=directory
+
+- name: Start bb-runner service
+  ansible.builtin.systemd:
+    name: bb-runner
+    enabled: yes
+    state: started

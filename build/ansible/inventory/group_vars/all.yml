@@ -1,0 +1,4 @@
+---
+on_amazon: "{{ 'amazon' in ansible_bios_version }}"
+host:
+  username: ubuntu

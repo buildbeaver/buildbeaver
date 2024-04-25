@@ -1,0 +1,2 @@
+---
+  buildbeaver_version: "{{ lookup('pipe', playbook_dir + '/../../scripts/version-info.sh') }}"
