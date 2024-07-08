@@ -11,8 +11,9 @@ export function SetUpRepos(props: Props): JSX.Element {
   return (
     <>
       <p>
-        In order for BuildBeaver to be able to operate against your GitHub repository, you must enable each repository below.
+        Please enable the GitHub repositories you wish BuildBeaver to operate on below.
       </p>
+      <br/>
       <Repos repoEnabled={refreshSetupStatus} />
     </>
   );
